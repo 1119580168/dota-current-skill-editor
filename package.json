@@ -1,0 +1,31 @@
+{
+  "name": "dota-current-skill-editor",
+  "productName": "Dota Current Skill Editor",
+  "version": "0.1.2",
+  "description": "Offline desktop ability editor for local Dota 2 cheat environments",
+  "author": "Dota Current Skill Editor contributors",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "main": "src/current-skill-editor/main.cjs",
+  "scripts": {
+    "start": "npm run prepare:electron && electron .",
+    "prepare:electron": "node node_modules/electron/install.js",
+    "build": "npm run build:assets && npm run verify:resources",
+    "build:assets": "node scripts/build-current-assets.cjs",
+    "build:resources": "node scripts/build-current-skill-editor.cjs",
+    "verify:resources": "node scripts/verify-current-resources.cjs",
+    "test": "node --test tests/*.test.cjs",
+    "test:ui": "npm run prepare:electron && node tests/current-ability-ui.cjs && node tests/current-editor-ui.cjs",
+    "pack": "npm run build && npm run prepare:electron && electron-builder --config scripts/current-skill-editor-build.json --win dir",
+    "format": "prettier --write src scripts tests docs tools/current-ability/ui README.md CHANGELOG.md CONTRIBUTING.md SECURITY.md package.json"
+  },
+  "devDependencies": {
+    "@fontsource/barlow-condensed": "5.3.0",
+    "@fontsource/cinzel": "5.3.0",
+    "@fontsource/noto-sans-sc": "5.3.0",
+    "@fontsource/noto-serif-sc": "5.3.0",
+    "electron": "44.5.1",
+    "electron-builder": "26.15.3",
+    "playwright": "1.63.0",
+    "prettier": "3.9.9"
+  }
+}

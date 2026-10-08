@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "clientBuild": 6944,
+  "files": [
+    {
+      "source": "panorama/layout/custom_game/current_ability_editor.vxml_c",
+      "target": "game/dota/panorama/layout/custom_game/current_ability_editor.vxml_c",
+      "sha256": "17ce2f374ae3e099d536886c892598863df843bd87783b487ea2bf5abe0a4b75"
+    },
+    {
+      "source": "panorama/scripts/custom_game/current_ability_editor.vjs_c",
+      "target": "game/dota/panorama/scripts/custom_game/current_ability_editor.vjs_c",
+      "sha256": "2679dee2db655fce1645617d010266137cdcb9b15b5f9764aecb02d4d152fe91"
+    },
+    {
+      "source": "panorama/styles/custom_game/current_ability_editor.vcss_c",
+      "target": "game/dota/panorama/styles/custom_game/current_ability_editor.vcss_c",
+      "sha256": "e766cd9be0859d1fa837ad342b210e15395f475cbf3f4f8dcd1823612bdfd4a2"
+    },
+    {
+      "source": "current_skill_editor_v1.lua",
+      "target": "game/dota/scripts/vscripts/current_skill_editor_v1.lua",
+      "sha256": "32019d8f63519d170de99c93c61071302355771ad2df13959b5baa0b3db3d311"
+    }
+  ]
+}

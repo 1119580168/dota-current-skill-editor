@@ -1,0 +1,12 @@
+* text=auto eol=lf
+resources/current-skill-editor/** -text
+tools/current-ability/current_skill_editor_v1.lua -text
+*.vjs_c binary
+*.vxml_c binary
+*.vcss_c binary
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.woff binary
+*.woff2 binary

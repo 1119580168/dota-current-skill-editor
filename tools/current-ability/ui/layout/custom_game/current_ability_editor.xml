@@ -1,0 +1,85 @@
+<root>
+    <styles>
+        <include src="s2r://panorama/styles/dotastyles.vcss_c" />
+        <include src="file://{resources}/styles/custom_game/current_ability_editor.css" />
+    </styles>
+    <scripts>
+        <include src="file://{resources}/scripts/custom_game/current_ability_editor.js" />
+    </scripts>
+    <Panel class="CurrentAbilityRoot" hittest="false">
+        <Panel id="EditorDock" class="EditorDock" hittest="true">
+            <Panel class="EditorHeader">
+                <Button id="ToggleEditor" class="EditorTitleButton" onactivate="CurrentAbilityEditor.Toggle()">
+                    <Label class="EditorMark" text="CHRONICLE / MODERN" />
+                    <Label class="EditorTitle" text="现代技能编辑" />
+                </Button>
+                <Button class="HeaderButton" onactivate="CurrentAbilityEditor.Toggle()">
+                    <Label id="ToggleGlyph" text="−" />
+                </Button>
+                <Button class="HeaderButton" onactivate="CurrentAbilityEditor.Close()">
+                    <Label text="×" />
+                </Button>
+            </Panel>
+            <Panel id="EditorBody" class="EditorBody">
+                <Panel class="HeroHeading">
+                    <Panel class="HeroCopy">
+                        <Label class="SectionCaption" text="当前英雄" />
+                        <Label id="CurrentHero" class="CurrentHero" text="等待服务器状态…" />
+                    </Panel>
+                    <Button class="QuietButton RefreshButton" onactivate="CurrentAbilityEditor.Refresh()">
+                        <Label text="刷新" />
+                    </Button>
+                </Panel>
+                <Panel class="SectionHeading">
+                    <Label class="SectionCaption" text="本工具新增" />
+                    <Label id="OwnedCount" class="MutedLabel" text="0 个" />
+                </Panel>
+                <Panel id="OwnedSkills" class="OwnedSkills" />
+                <Label id="OwnedEmpty" class="EmptyLabel" text="尚未添加技能。下方选择后添加。" />
+                <Button class="NativeToggle" onactivate="CurrentAbilityEditor.ToggleNative()">
+                    <Label id="NativeSummary" text="原技能与天赋 · 只读" />
+                </Button>
+                <Panel id="NativeSkills" class="NativeSkills" />
+                <Panel class="DirectoryHeader">
+                    <Label class="SectionCaption" text="本版本技能目录" />
+                    <Label id="CatalogCount" class="MutedLabel" text="等待目录" />
+                </Panel>
+                <TextEntry id="SkillSearch" class="SkillSearch" ontextentrychange="CurrentAbilityEditor.SearchChanged()" ontextentrysubmit="CurrentAbilityEditor.SearchNow()" />
+                <Label class="SearchHelp" text="搜索中文名、内部名或来源英雄" />
+                <Panel class="CategoryRow">
+                    <Label class="MutedLabel" text="分类" />
+                    <DropDown id="SkillCategory" class="SkillCategory" oninputsubmit="CurrentAbilityEditor.CategoryChanged()">
+                        <Label id="default" text="常规技能" />
+                        <Label id="complex" text="复杂依赖" />
+                        <Label id="all" text="全部项目" />
+                        <Label id="hidden" text="隐藏技能" />
+                        <Label id="innate" text="先天技能 · 高级" />
+                        <Label id="talent" text="天赋" />
+                        <Label id="item" text="物品技能" />
+                        <Label id="generic" text="引擎通用项" />
+                    </DropDown>
+                </Panel>
+                <Panel id="CatalogSkills" class="CatalogSkills" />
+                <Label id="CatalogEmpty" class="EmptyLabel" text="等待服务器目录…" />
+                <Panel class="Pagination">
+                    <Button id="PreviousPage" class="QuietButton" onactivate="CurrentAbilityEditor.Page(-1)"><Label text="上一页" /></Button>
+                    <Label id="PageLabel" class="PageLabel" text="1 / 1" />
+                    <Button id="NextPage" class="QuietButton" onactivate="CurrentAbilityEditor.Page(1)"><Label text="下一页" /></Button>
+                </Panel>
+                <Panel id="SelectedSkill" class="SelectedSkill">
+                    <Label id="SelectedName" class="SelectedName" text="选择一个技能" />
+                    <Label id="SelectedInternal" class="InternalName" text="" />
+                    <Label id="DependencyNote" class="DependencyNote" text="添加不等于完整效果兼容；复杂技能请逐项验证。" />
+                    <ToggleButton id="AllowRisk" class="RiskToggle" onactivate="CurrentAbilityEditor.RiskChanged()">
+                        <Label text="允许尝试此高级项目 · 效果未验证" />
+                    </ToggleButton>
+                    <Button id="AddSkill" class="AddSkill" onactivate="CurrentAbilityEditor.Add()"><Label text="添加选中技能" /></Button>
+                </Panel>
+                <Panel id="StatusBlock" class="StatusBlock">
+                    <Label id="OperationStatus" class="OperationStatus" text="正在请求服务器状态…" />
+                </Panel>
+                <Label class="EditorFootnote" text="仅本地房主与作弊模式；原技能与天赋只读。复杂效果需实测。" />
+            </Panel>
+        </Panel>
+    </Panel>
+</root>

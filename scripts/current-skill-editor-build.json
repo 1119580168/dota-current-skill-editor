@@ -1,0 +1,33 @@
+{
+  "appId": "org.dotachronicle.current-skills",
+  "productName": "Dota Current Skill Editor",
+  "electronDist": "node_modules/electron/dist",
+  "directories": { "output": "release" },
+  "files": [
+    "src/current-skill-editor/**/*",
+    "src/backend/files.cjs",
+    "src/backend/windows.cjs",
+    "src/backend/languages.cjs",
+    "src/ui/assets/fonts/**/*",
+    "resources/current-skill-editor/**/*",
+    "resources/licenses/**/*",
+    "LICENSE",
+    "NOTICE",
+    "package.json"
+  ],
+  "asar": true,
+  "asarUnpack": ["resources/current-skill-editor/**/*"],
+  "extraFiles": [
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "CHANGELOG.md",
+    { "from": "docs", "to": "docs" },
+    { "from": "resources/licenses", "to": "licenses" }
+  ],
+  "win": {
+    "target": ["dir"],
+    "signExecutable": false,
+    "icon": "resources/icon.ico"
+  }
+}

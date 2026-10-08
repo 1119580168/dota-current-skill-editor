@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Dota Skill Workshop · 当前版本技能工作台</title>
+    <link rel="stylesheet" href="../../ui/assets/fonts/fonts.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="editor.css" />
+    <script type="module" src="app.js"></script>
+    <script type="module" src="editor.js"></script>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar" aria-label="工具流程">
+        <div class="brand">
+          <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true">
+            <path
+              d="M4 5h10L30 21v10H20L4 15V5Zm20 0h7v7l-7-7ZM4 24l7 7H4v-7Z"
+            />
+          </svg>
+          <div>
+            <strong>SKILL WORKSHOP</strong><span>DOTA 2 · 本地技能工具</span>
+          </div>
+        </div>
+        <div class="sidebar-rule"></div>
+        <p class="sidebar-caption">开始一次组合试玩</p>
+        <ol class="steps">
+          <li id="step-client" aria-current="step">
+            <span class="step-number">01</span>
+            <div>
+              <strong>检测客户端</strong><small>确认当前版本与目录</small>
+            </div>
+            <span class="step-dot"></span>
+          </li>
+          <li id="step-prepare">
+            <span class="step-number">02</span>
+            <div>
+              <strong>准备工具</strong><small>挂载独立面板与模块</small>
+            </div>
+            <span class="step-dot"></span>
+          </li>
+          <li id="step-launch">
+            <span class="step-number">03</span>
+            <div>
+              <strong>进入本机游戏</strong><small>选择英雄，等待桌面连接</small>
+            </div>
+            <span class="step-dot"></span>
+          </li>
+        </ol>
+        <div class="sidebar-bottom">
+          <span class="offline"><i></i>完全离线</span>
+          <p>工具与游戏数据分开管理。<br />技能效果由当前原生引擎执行。</p>
+          <span class="sidebar-edition">CURRENT ENGINE / WINDOWS</span>
+        </div>
+      </aside>
+      <div class="workspace">
+        <header class="topbar">
+          <div class="breadcrumb">
+            本地工具<span>/</span><strong>当前版本技能工作台</strong>
+          </div>
+          <button
+            id="refresh"
+            class="icon-button"
+            aria-label="重新检测客户端"
+            title="重新检测客户端"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 8V3l-3 3a8 8 0 1 0 3 10M20 3h-5" />
+            </svg>
+          </button>
+        </header>
+        <main>
+          <section class="intro" aria-labelledby="page-title">
+            <div>
+              <p class="eyebrow">DOTA 2 / CURRENT SKILL EDITOR</p>
+              <h1 id="page-title">自由组合，原生运行。</h1>
+              <p class="intro-copy">
+                为本机英雄添加技能、调整等级，移除工具新增的技能。
+              </p>
+            </div>
+            <div class="edition">
+              <span>制作基线</span><strong id="reference-patch">7.41f</strong
+              ><small id="reference-build">BUILD 6944</small>
+            </div>
+          </section>
+          <div
+            id="notice"
+            class="notice"
+            role="status"
+            aria-live="polite"
+            hidden
+          >
+            <span class="notice-mark" aria-hidden="true">!</span>
+            <p id="notice-text"></p>
+          </div>
+          <section
+            id="skill-editor"
+            class="editor-panel"
+            aria-labelledby="editor-title"
+          >
+            <div class="editor-heading">
+              <div>
+                <span class="editor-kicker">LIVE / SKILL COMPOSITION</span>
+                <h2 id="editor-title">技能组合</h2>
+              </div>
+              <div class="editor-heading-actions">
+                <span id="editor-connection" class="editor-badge"
+                  >未连接游戏</span
+                ><button id="editor-refresh" class="editor-button" disabled>
+                  读取英雄
+                </button>
+              </div>
+            </div>
+            <p id="editor-waiting" class="editor-waiting">
+              准备工具后，由本工具启动本机游戏。选择英雄并等待连接，即可在此编辑技能。
+            </p>
+            <section class="editor-surface" aria-label="编辑面板位置">
+              <div class="editor-surface-copy">
+                <h3>编辑面板</h3>
+                <span id="editor-panel-status" role="status" aria-live="polite"
+                  >等待本机连接</span
+                >
+                <p id="editor-panel-reason">
+                  官方试玩或支持的本地游廊可打开游戏内面板；普通比赛仅使用桌面。
+                </p>
+              </div>
+              <div class="editor-surface-actions">
+                <button
+                  id="editor-panel-open"
+                  class="editor-button"
+                  aria-describedby="editor-panel-reason"
+                  disabled
+                >
+                  打开游戏内面板
+                </button>
+                <button
+                  id="editor-panel-close"
+                  class="editor-button"
+                  aria-describedby="editor-panel-reason"
+                  disabled
+                >
+                  关闭游戏内面板 / 使用桌面
+                </button>
+              </div>
+            </section>
+            <div id="editor-live" hidden>
+              <div class="editor-context">
+                <strong id="editor-hero">—</strong
+                ><span id="editor-context-detail"></span
+                ><span id="editor-access"></span>
+              </div>
+              <div
+                id="editor-feedback"
+                class="editor-feedback"
+                role="status"
+                aria-live="polite"
+              >
+                等待游戏读回。
+              </div>
+              <div class="editor-grid">
+                <section
+                  class="editor-skills"
+                  aria-labelledby="editor-owned-title"
+                >
+                  <div class="editor-subheading">
+                    <h3 id="editor-owned-title">工具新增</h3>
+                    <span id="editor-owned-count">0 项</span>
+                  </div>
+                  <p class="editor-help">
+                    等级与删除仅作用于本工具新增的技能。
+                  </p>
+                  <div id="editor-owned-list" class="editor-owned-list"></div>
+                  <details id="editor-native" class="editor-native">
+                    <summary>
+                      原生技能与天赋 <span id="editor-native-count">0</span
+                      ><span class="editor-readonly-label">只读</span>
+                    </summary>
+                    <div
+                      id="editor-native-list"
+                      class="editor-native-list"
+                    ></div>
+                  </details>
+                </section>
+                <section
+                  class="editor-catalog"
+                  aria-labelledby="editor-catalog-title"
+                >
+                  <div class="editor-subheading">
+                    <h3 id="editor-catalog-title">本版本技能目录</h3>
+                    <span id="editor-catalog-total">—</span>
+                  </div>
+                  <div class="editor-search-row">
+                    <label class="editor-search"
+                      ><span class="editor-sr-only">搜索技能</span
+                      ><input
+                        id="editor-query"
+                        placeholder="中文、英文、内部名或来源英雄"
+                        autocomplete="off"
+                        spellcheck="false"
+                        maxlength="192"
+                        disabled
+                      /><button
+                        id="editor-search-clear"
+                        class="editor-search-clear"
+                        aria-label="清空技能搜索"
+                        hidden
+                      >
+                        ×
+                      </button></label
+                    ><label
+                      ><span class="editor-sr-only">技能分类</span
+                      ><select
+                        id="editor-category"
+                        class="editor-category"
+                        disabled
+                      >
+                        <option value="default">常规技能</option>
+                        <option value="complex">复杂依赖</option>
+                        <option value="innate">先天技能</option>
+                        <option value="hidden">隐藏技能</option>
+                        <option value="talent">天赋</option>
+                        <option value="item">物品技能</option>
+                        <option value="generic">通用技能</option>
+                        <option value="all">全部分类</option>
+                      </select></label
+                    >
+                  </div>
+                  <div
+                    id="editor-catalog-list"
+                    class="editor-catalog-list"
+                    role="list"
+                    aria-label="技能搜索结果"
+                  ></div>
+                  <div class="editor-pagination">
+                    <button id="editor-prev" class="editor-button" disabled>
+                      上一页</button
+                    ><span id="editor-page">—</span
+                    ><button id="editor-next" class="editor-button" disabled>
+                      下一页
+                    </button>
+                  </div>
+                  <div id="editor-selection" class="editor-selection" hidden>
+                    <div class="editor-selection-heading">
+                      <h3 id="editor-selected-name"></h3>
+                      <code id="editor-selected-id"></code>
+                    </div>
+                    <p id="editor-selected-source" class="editor-help"></p>
+                    <p id="editor-selected-note" class="editor-dependency"></p>
+                    <label id="editor-risk-row" class="editor-risk" hidden
+                      ><input id="editor-risk" type="checkbox" /><span
+                        >我了解此技能可能依赖其他技能、英雄资源或隐藏机制，愿意在本机测试。</span
+                      ></label
+                    ><button
+                      id="editor-add"
+                      class="editor-button editor-primary"
+                      disabled
+                    >
+                      添加技能
+                    </button>
+                    <p id="editor-add-help" class="editor-help">
+                      添加后等待游戏确认。
+                    </p>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </section>
+          <section class="client-panel panel" aria-labelledby="client-heading">
+            <div class="section-heading">
+              <div>
+                <span class="section-kicker">01 / CLIENT</span>
+                <h2 id="client-heading">当前 Steam 客户端</h2>
+              </div>
+              <span id="client-status" class="badge neutral">等待检测</span>
+            </div>
+            <label class="input-label" for="client-root">客户端根目录</label>
+            <div class="root-control">
+              <input
+                id="client-root"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="选择包含 game 文件夹的 DOTA 2 目录"
+                aria-describedby="root-help"
+              /><button id="select-root" class="button secondary">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 7V4h6l2 3h10v13H3V7Zm0 3h18" /></svg
+                >选择目录</button
+              ><button id="inspect" class="button secondary">检测</button>
+            </div>
+            <p id="root-help" class="hint">
+              检测当前构建与工具文件状态。Steam 更新后，请重新检测。
+            </p>
+            <div class="client-facts">
+              <div>
+                <span>检测到的客户端构建</span
+                ><strong id="build-value">—</strong>
+              </div>
+              <div>
+                <span>工具文件</span
+                ><strong id="install-value">尚未准备</strong>
+              </div>
+              <div>
+                <span>游戏进程</span><strong id="process-value">未启动</strong>
+              </div>
+            </div>
+            <p id="version-detail" class="hint" hidden></p>
+            <p id="compatibility-note" class="hint" role="status" hidden></p>
+          </section>
+          <div class="work-grid">
+            <section
+              class="launch-panel panel"
+              aria-labelledby="launch-heading"
+            >
+              <div class="section-heading">
+                <div>
+                  <span class="section-kicker">02 — 03 / PLAY</span>
+                  <h2 id="launch-heading">开始使用</h2>
+                </div>
+                <span id="launch-state" class="badge neutral"
+                  >先检测客户端</span
+                >
+              </div>
+              <div class="prepare-row">
+                <div>
+                  <h3>准备技能工具</h3>
+                  <p>生成本机技能目录，挂载原创界面与模块。</p>
+                </div>
+                <button id="prepare" class="button primary" disabled>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="m14 3 7 7-11 11-7-7L14 3ZM10 7l7 7M5 3v4M3 5h4"
+                    /></svg
+                  ><span>一键准备</span>
+                </button>
+              </div>
+              <div class="launch-modes" aria-label="选择游戏入口">
+                <button class="mode-card" data-launch="demo" disabled>
+                  <span class="mode-icon"
+                    ><svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="m12 3 3 5 6 1-4 4 1 7-6-3-6 3 1-7-4-4 6-1 3-5Z"
+                      /></svg></span
+                  ><span class="mode-copy"
+                    ><strong>英雄试玩</strong
+                    ><small>选择英雄，在原生试玩中组合技能</small></span
+                  ><span class="mode-arrow" aria-hidden="true">↗</span
+                  ><span class="recommended">推荐</span>
+                </button>
+                <button class="mode-card" data-launch="match" disabled>
+                  <span class="mode-icon"
+                    ><svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="m4 3 14 14m-1-6 4 4-6 6-4-4M20 3 6 17m1-6-4 4 6 6 4-4"
+                      /></svg></span
+                  ><span class="mode-copy"
+                    ><strong>本地机器人比赛</strong
+                    ><small>在完整地图中测试技能组合</small></span
+                  ><span class="mode-arrow" aria-hidden="true">↗</span>
+                </button>
+                <button class="mode-card" data-launch="menu" disabled>
+                  <span class="mode-icon"
+                    ><svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M4 4h16v16H4V4Zm0 5h16M9 9v11" /></svg></span
+                  ><span class="mode-copy"
+                    ><strong>进入主菜单</strong
+                    ><small>自行创建本地房间或进入试玩</small></span
+                  ><span class="mode-arrow" aria-hidden="true">↗</span>
+                </button>
+              </div>
+              <p class="launch-note">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M12 8v5m0 3h.01M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z"
+                  /></svg
+                ><span
+                  >进入游戏后等待桌面编辑区连接；普通比赛无需手动载入命令。</span
+                >
+              </p>
+            </section>
+            <aside class="scope-panel panel" aria-labelledby="scope-heading">
+              <span class="section-kicker">LOCAL AUTHORITY</span>
+              <h2 id="scope-heading">本机房主的工具</h2>
+              <div class="scope-emblem" aria-hidden="true">
+                <svg viewBox="0 0 80 80">
+                  <path
+                    class="emblem-frame"
+                    d="m40 5 29 16v35L40 73 11 56V21L40 5Z"
+                  />
+                  <path
+                    d="M27 44v-7a13 13 0 0 1 26 0v7M23 41h34v20H23V41Zm17 7v7"
+                  />
+                </svg>
+              </div>
+              <ul class="scope-list">
+                <li><span>01</span>真实本机服务器与作弊环境</li>
+                <li><span>02</span>只修改房主合法拥有的英雄</li>
+                <li><span>03</span>原技能与天赋保留</li>
+              </ul>
+              <p class="scope-warning">
+                远端服务器开启 <code>sv_cheats</code>，不代表你拥有房主权限。
+              </p>
+            </aside>
+          </div>
+          <section class="manual-panel panel" aria-labelledby="manual-heading">
+            <div class="manual-copy">
+              <span class="section-kicker">LOCAL CONNECTION</span>
+              <h2 id="manual-heading">本机连接与控制台备用入口</h2>
+              <p>
+                已从其他入口启动的游戏，请先退出，再由本工具启动。桌面编辑自动连接；上方面板按钮用于官方试玩或支持的本地游廊，右侧命令仅为英雄试玩的备用入口。
+                控制台备用键 <kbd>F8</kbd>。
+              </p>
+            </div>
+            <div class="command-group">
+              <div class="command-heading">
+                <span>英雄试玩 · 游戏内面板命令</span
+                ><button id="copy-command" class="text-button" disabled>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M8 8h12v13H8V8ZM4 16H2V3h13v2" /></svg
+                  ><span>复制命令</span>
+                </button>
+              </div>
+              <pre
+                id="load-command"
+                tabindex="0"
+                aria-label="英雄试玩游戏内面板命令"
+              >
+检测并准备工具后显示</pre>
+            </div>
+          </section>
+          <section class="status-panel panel" aria-labelledby="status-heading">
+            <div class="status-overview">
+              <span id="phase-dot" class="phase-dot"></span>
+              <div>
+                <h2 id="status-heading">运行状态</h2>
+                <p id="phase-text" aria-live="polite">正在连接本地管理器…</p>
+              </div>
+              <span id="phase-detail" class="hint"
+                >文件准备与面板加载分别检查</span
+              >
+            </div>
+            <details id="activity">
+              <summary>近期记录<span id="log-count">0</span></summary>
+              <ol id="activity-log" class="activity-log"></ol>
+            </details>
+          </section>
+          <div class="maintenance">
+            <p>工具文件按指纹恢复；外部改动会保留并提示。</p>
+            <div>
+              <button id="open-folder" class="button quiet small" disabled>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 7V4h6l2 3h10v13H3V7Zm0 3h18" /></svg
+                >打开客户端目录</button
+              ><button id="restore" class="button quiet small" disabled>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 8V3m0 5h5M4 8a8 8 0 1 1-1 9" /></svg
+                >恢复工具文件
+              </button>
+            </div>
+          </div>
+        </main>
+        <footer>
+          <span><i></i>本地运行 · 无联网请求</span
+          ><span>独立管理当前客户端</span>
+        </footer>
+      </div>
+    </div>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>
