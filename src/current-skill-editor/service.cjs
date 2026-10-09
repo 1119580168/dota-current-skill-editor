@@ -125,13 +125,82 @@ function createService({
     };
   }
   async function games() {
+    await read();
     const raw = await w.ps(
-      "Get-CimInstance Win32_Process -Filter \"Name='dota2.exe' OR Name='dota.exe' OR Name='hl2.exe'\" | Select-Object ProcessId,ExecutablePath,@{Name=\"CreatedUtc\";Expression={$_.CreationDate.ToUniversalTime().ToString(\"o\")}} | ConvertTo-Json -Compress",
+      'Get-CimInstance Win32_Process -Filter "Name=\'dota2.exe\' OR Name=\'dota.exe\'" | Select-Object Name,ProcessId,ExecutablePath,@{Name="CreatedUtc";Expression={$_.CreationDate.ToUniversalTime().ToString("o")}} | ConvertTo-Json -Compress',
     );
-    return raw ? [].concat(JSON.parse(raw)) : [];
+    const rows = raw ? [].concat(JSON.parse(raw)) : [],
+      selectedExe = path.resolve(record.root, "game/bin/win64/dota2.exe"),
+      result = [];
+    for (const row of rows) {
+      const exe =
+          typeof row?.ExecutablePath === "string" ? row.ExecutablePath : "",
+        name = String(row?.Name || path.basename(exe)).toLowerCase();
+      // hl2.exe is shared by unrelated Source games and is never a current
+      // editor candidate. Keep this check even if discovery returns extra rows.
+      if (!["dota2.exe", "dota.exe"].includes(name)) continue;
+      const uncertain = () =>
+        result.push({
+          ...row,
+          processIssue:
+            "无法核实已有 Dota 进程的路径或 AppID；请退出该进程后重试。工具不会关闭外部游戏。",
+        });
+      if (!path.isAbsolute(exe) || path.basename(exe).toLowerCase() !== name) {
+        uncertain();
+        continue;
+      }
+      const resolvedExe = path.resolve(exe);
+      // The selected executable may still be using our files even if Steam
+      // has replaced its metadata. It must never depend on a fresh AppID read.
+      if (resolvedExe.toLowerCase() === selectedExe.toLowerCase()) {
+        result.push(row);
+        continue;
+      }
+      const dir = path.dirname(resolvedExe),
+        source2 =
+          name === "dota2.exe" &&
+          ["win64", "win32"].includes(path.basename(dir).toLowerCase()) &&
+          path.basename(path.dirname(dir)).toLowerCase() === "bin" &&
+          path.basename(path.dirname(path.dirname(dir))).toLowerCase() ===
+            "game",
+        infFile = source2
+          ? path.join(dir, "../../dota/steam.inf")
+          : path.join(dir, "dota/steam.inf");
+      try {
+        await f.noLinks(infFile);
+        const stat = await fs.stat(infFile);
+        if (!stat.isFile() || stat.size > 64 * 1024) {
+          uncertain();
+          continue;
+        }
+        const text = (await fs.readFile(infFile)).toString("utf8"),
+          fields = [
+            ...text.matchAll(/^\s*appID[ \t]*=[ \t]*([^\r\n]*)\r?$/gim),
+          ],
+          appId =
+            fields.length === 1 && /^\d+$/.test(fields[0][1].trim())
+              ? Number(fields[0][1].trim())
+              : null;
+        if (!Number.isSafeInteger(appId) || appId <= 0) uncertain();
+        else if (appId === 570) result.push(row);
+        // A valid different AppID proves this is another game. A missing,
+        // unreadable or ambiguous marker cannot safely exempt a Dota-named
+        // process. No Steam routes, mounts or external files are modified.
+      } catch {
+        uncertain();
+      }
+    }
+    return result;
   }
   async function requireGameIdle(message) {
-    if ((await games()).length) throw Error(message);
+    const list = await games();
+    if (list.length)
+      throw Error(
+        message +
+          (list.some((row) => row.processIssue)
+            ? "；" + list.find((row) => row.processIssue).processIssue
+            : ""),
+      );
   }
   function validateLease() {
     const lease = record.lease;
@@ -239,6 +308,7 @@ function createService({
       issue = e.message;
     }
     const list = await games();
+    issue ||= list.find((row) => row.processIssue)?.processIssue || null;
     const ownedRunning =
       !!record.game && list.some((p) => w.sameProcess(p, record.game));
     if (!ownedRunning) {

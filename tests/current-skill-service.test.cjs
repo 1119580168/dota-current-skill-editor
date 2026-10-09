@@ -40,6 +40,8 @@ async function fixture(t) {
   const discovery = t.mock.method(w, "ps", async (script) => {
     assert.match(script, /^Get-CimInstance Win32_Process -Filter/);
     assert.match(script, /Name='dota2\.exe'/);
+    assert.match(script, /Select-Object Name,ProcessId,ExecutablePath/);
+    assert.doesNotMatch(script, /Name='hl2\.exe'/);
     assert.doesNotMatch(script, /Stop-Process|Set-Item|Registry|Remove-Item/);
     const rows = await gameSource();
     return rows.length ? JSON.stringify(rows) : "";
@@ -130,6 +132,28 @@ async function fixture(t) {
     games: (fn) => {
       gameSource = fn;
     },
+    syntheticGame: async (name, source2 = true, metadata = inf) => {
+      const externalRoot = path.join(temp, "external-" + name),
+        relative = source2 ? "game/bin/win64/dota2.exe" : "dota.exe",
+        exe = path.join(externalRoot, relative),
+        infFile = path.join(
+          externalRoot,
+          source2 ? "game/dota/steam.inf" : "dota/steam.inf",
+        );
+      await fs.mkdir(path.dirname(exe), { recursive: true });
+      await fs.mkdir(path.dirname(infFile), { recursive: true });
+      await fs.writeFile(exe, "synthetic non-executable external fixture\n");
+      await fs.writeFile(infFile, metadata);
+      return {
+        infFile,
+        row: {
+          Name: path.basename(exe),
+          ProcessId: 9001,
+          ExecutablePath: exe,
+          CreatedUtc: "2026-01-01T00:00:00Z",
+        },
+      };
+    },
     target: (index) => path.join(root, LEASE_TARGETS[index]),
     payloadBytes: (index) =>
       fs.readFile(path.join(payload, manifest.files[index].source)),
@@ -147,6 +171,25 @@ async function fixture(t) {
       assert.equal(stop.mock.callCount(), 0);
     },
   };
+}
+
+function allowSyntheticLaunch(fx, extraRows = []) {
+  const row = {
+    Name: "dota2.exe",
+    ProcessId: 7100,
+    ExecutablePath: path.join(fx.root, "game/bin/win64/dota2.exe"),
+    CreatedUtc: "2026-01-01T00:00:00Z",
+  };
+  fx.identity.mock.mockImplementation(async () => row);
+  fx.spawning.mock.mockImplementation(() => {
+    fx.games(() => [...extraRows, row]);
+    const child = Object.assign(new EventEmitter(), {
+      pid: row.ProcessId,
+      unref() {},
+    });
+    queueMicrotask(() => child.emit("spawn"));
+    return child;
+  });
 }
 
 test("current editor prepares six tool files including a private capability, repeated prepare is idempotent, and explicit restore leaves originals unchanged", async (t) => {
@@ -524,20 +567,19 @@ test("AppID replacement during preparation still refuses installation while Stea
   await fx.verifyOriginals(true);
 });
 
-test("any existing game, including an external installation, blocks writes, restore and new launch without termination", async (t) => {
+test("a verified external Dota installation blocks writes, restore and new launch without termination", async (t) => {
   const fx = await fixture(t);
+  const external = await fx.syntheticGame(
+    "dota",
+    true,
+    inf.replaceAll("6944", "6951"),
+  );
   await fx.service.prepare();
   const before = await fs.readFile(fx.stateFile),
     hashes = await Promise.all(
       LEASE_TARGETS.map((_, index) => f.hash(fx.target(index))),
     );
-  fx.games(() => [
-    {
-      ProcessId: 9001,
-      ExecutablePath: path.join(fx.temp, "external-client/dota2.exe"),
-      CreatedUtc: "2026-01-01T00:00:00Z",
-    },
-  ]);
+  fx.games(() => [external.row]);
   const state = await fx.service.inspect();
   assert.equal(state.gameRunning, true);
   assert.equal(state.ownedRunning, false);
@@ -556,12 +598,178 @@ test("any existing game, including an external installation, blocks writes, rest
   await fx.verifyOriginals();
 });
 
+test("another Source game's hl2.exe does not block first preparation, synthetic launch or restoration", async (t) => {
+  const fx = await fixture(t),
+    sourceGame = {
+      Name: "hl2.exe",
+      ProcessId: 9002,
+      ExecutablePath: path.join(fx.temp, "Half-Life 2/hl2.exe"),
+      CreatedUtc: "2026-01-01T00:00:00Z",
+    };
+  fx.games(() => [sourceGame]);
+  assert.equal((await fx.service.inspect()).gameRunning, false);
+  await fx.service.prepare();
+  assert.equal((await fx.service.inspect()).installed, true);
+  allowSyntheticLaunch(fx, [sourceGame]);
+  await fx.service.launch("menu");
+  assert.equal((await fx.service.inspect()).ownedRunning, true);
+  fx.games(() => [sourceGame]);
+  await fx.service.restore();
+  assert.equal((await fx.service.inspect()).canRestore, false);
+  assert.equal(fx.spawning.mock.callCount(), 1);
+  await fx.verifyOriginals();
+});
+
+for (const source2 of [true, false]) {
+  test(`a valid non-Dota AppID exempts an external ${source2 ? "dota2.exe" : "dota.exe"} from concurrency protection`, async (t) => {
+    const fx = await fixture(t),
+      external = await fx.syntheticGame("other-app", source2, "appID=220\n");
+    fx.games(() => [external.row]);
+    const state = await fx.service.inspect();
+    assert.equal(state.gameRunning, false);
+    assert.equal(state.issue, null);
+    await fx.service.prepare();
+    allowSyntheticLaunch(fx, [external.row]);
+    await fx.service.launch("menu");
+    fx.games(() => [external.row]);
+    await fx.service.restore();
+    assert.equal((await fx.service.inspect()).canRestore, false);
+    assert.equal(await fs.readFile(external.infFile, "utf8"), "appID=220\n");
+    await fx.verifyOriginals();
+  });
+}
+
+test("a historical Source 1 Dota with AppID 570 still protects against concurrent preparation, launch and recovery", async (t) => {
+  const fx = await fixture(t),
+    historical = await fx.syntheticGame(
+      "historical",
+      false,
+      "ClientVersion=40\nappID=570\n",
+    );
+  fx.games(() => [historical.row]);
+  assert.equal((await fx.service.inspect()).gameRunning, true);
+  await assert.rejects(fx.service.prepare(), /退出 DOTA2/);
+  assert.equal((await fx.record()).lease, null);
+  fx.games(() => []);
+  await fx.service.prepare();
+  fx.games(() => [historical.row]);
+  assert.equal((await fx.service.inspect()).issue, null);
+  await assert.rejects(fx.service.launch("menu"), /已运行/);
+  await assert.rejects(fx.service.restore(), /不会关闭外部游戏/);
+  assert.equal(fx.spawning.mock.callCount(), 0);
+  assert.equal(
+    await fs.readFile(historical.infFile, "utf8"),
+    "ClientVersion=40\nappID=570\n",
+  );
+  await fx.verifyOriginals();
+});
+
+test("external 32-bit Source 2 Dota is recognized by its own metadata rather than the selected root", async (t) => {
+  const fx = await fixture(t),
+    external = await fx.syntheticGame("win32"),
+    exe = path.join(
+      path.dirname(path.dirname(external.row.ExecutablePath)),
+      "win32/dota2.exe",
+    );
+  await fs.mkdir(path.dirname(exe), { recursive: true });
+  await fs.rename(external.row.ExecutablePath, exe);
+  fx.games(() => [{ ...external.row, ExecutablePath: exe }]);
+  assert.equal((await fx.service.inspect()).gameRunning, true);
+  assert.equal((await fx.service.inspect()).issue, null);
+  await assert.rejects(fx.service.prepare(), /退出 DOTA2/);
+  await fx.verifyOriginals();
+});
+
+test("the selected executable keeps write protection when its AppID metadata is replaced or missing", async (t) => {
+  const fx = await fixture(t);
+  await fx.service.prepare();
+  fx.games(() => [
+    {
+      Name: "DOTA2.EXE",
+      ProcessId: 9001,
+      ExecutablePath: path
+        .join(fx.root, "game/bin/win64/dota2.exe")
+        .toUpperCase(),
+    },
+  ]);
+  const infFile = path.join(fx.root, "game/dota/steam.inf");
+  await fs.writeFile(infFile, "appID=220\n");
+  assert.equal((await fx.service.inspect()).gameRunning, true);
+  await assert.rejects(fx.service.restore(), /不会关闭外部游戏/);
+  await fs.unlink(infFile);
+  assert.equal((await fx.service.inspect()).gameRunning, true);
+  await assert.rejects(fx.service.restore(), /不会关闭外部游戏/);
+  await fs.writeFile(infFile, inf);
+  await fx.verifyOriginals();
+});
+
+for (const name of ["dota2.exe", "dota.exe"]) {
+  test(`a ${name} process with an inaccessible executable path fails closed without terminating it`, async (t) => {
+    const fx = await fixture(t);
+    await fx.service.prepare();
+    const before = await fs.readFile(fx.stateFile);
+    fx.games(() => [{ Name: name, ProcessId: 9001, ExecutablePath: null }]);
+    const state = await fx.service.inspect();
+    assert.equal(state.gameRunning, true);
+    assert.equal(state.ownedRunning, false);
+    assert.match(state.issue, /无法核实.*路径或 AppID/);
+    await assert.rejects(fx.service.prepare(), /无法核实/);
+    await assert.rejects(fx.service.restore(), /无法核实/);
+    await assert.rejects(fx.service.launch("menu"), /已运行/);
+    assert.deepEqual(await fs.readFile(fx.stateFile), before);
+    for (let index = 0; index < LEASE_TARGETS.length; index++)
+      assert.equal(await f.exists(fx.target(index)), true);
+    assert.equal(fx.spawning.mock.callCount(), 0);
+    assert.equal(fx.identity.mock.callCount(), 0);
+    await fx.verifyOriginals();
+  });
+}
+
+for (const metadata of [
+  "appID=570\nappID=220\n",
+  "appID=570\nappID=invalid\n",
+  "appID=invalid\n",
+  "appID=570\n" + "x".repeat(64 * 1024),
+]) {
+  test(`ambiguous, invalid or oversized external Dota metadata cannot bypass concurrency protection (${metadata.length} bytes)`, async (t) => {
+    const fx = await fixture(t),
+      external = await fx.syntheticGame("uncertain", true, metadata);
+    fx.games(() => [external.row]);
+    const state = await fx.service.inspect();
+    assert.equal(state.gameRunning, true);
+    assert.match(state.issue, /无法核实/);
+    await assert.rejects(fx.service.prepare(), /无法核实/);
+    assert.equal((await fx.record()).lease, null);
+    assert.equal(await fs.readFile(external.infFile, "utf8"), metadata);
+    await fx.verifyOriginals();
+  });
+}
+
+test("missing or permission-denied external Dota metadata fails closed while preserving its files", async (t) => {
+  const fx = await fixture(t),
+    external = await fx.syntheticGame("permission-denied"),
+    readFile = fs.readFile;
+  t.mock.method(fs, "readFile", async (file, ...args) => {
+    if (file === external.infFile)
+      throw Object.assign(Error("synthetic access denied"), { code: "EACCES" });
+    return readFile(file, ...args);
+  });
+  fx.games(() => [external.row]);
+  assert.equal((await fx.service.inspect()).gameRunning, true);
+  await assert.rejects(fx.service.prepare(), /无法核实/);
+  await fs.unlink(external.infFile);
+  assert.equal((await fx.service.inspect()).gameRunning, true);
+  await assert.rejects(fx.service.restore(), /无法核实/);
+  assert.equal((await fx.record()).lease, null);
+  await fx.verifyOriginals();
+});
+
 test("a game appearing during preparation stops before the first tool write and leaves a recoverable empty intent", async (t) => {
   const fx = await fixture(t);
   let count = 0;
   fx.games(() =>
     ++count >= 3
-      ? [{ ProcessId: 9001, ExecutablePath: "synthetic-external-dota2.exe" }]
+      ? [{ Name: "dota2.exe", ProcessId: 9001, ExecutablePath: null }]
       : [],
   );
   await assert.rejects(fx.service.prepare(), /准备期间启动/);
@@ -580,7 +788,7 @@ test("a game appearing during restore prevents subsequent deletions and a fresh 
   let count = 0;
   fx.games(() =>
     ++count >= 3
-      ? [{ ProcessId: 9001, ExecutablePath: "synthetic-external-dota2.exe" }]
+      ? [{ Name: "dota2.exe", ProcessId: 9001, ExecutablePath: null }]
       : [],
   );
   await assert.rejects(fx.service.restore(), /恢复期间启动/);
